@@ -8,6 +8,7 @@ import pandas as pd
 import requests
 import json
 import logging
+import os
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from pathlib import Path
@@ -458,21 +459,85 @@ def setup_logging(log_level: str = "INFO"):
     )
 
 
-def load_config(config_file: str) -> KordiamConfig:
-    """Load configuration from JSON file."""
+def load_config_with_args(args) -> KordiamConfig:
+    """Load configuration with command line argument support."""
     try:
-        with open(config_file, 'r') as f:
-            config_data = json.load(f)
+        # First priority: Command line arguments
+        if args.client_id and args.client_secret:
+            logging.info("Using OAuth2 credentials from command line arguments")
+            return KordiamConfig(
+                base_url=args.base_url,
+                client_id=args.client_id,
+                client_secret=args.client_secret,
+                token_endpoint='/api/token',
+                timeout=30
+            )
         
-        return KordiamConfig(
-            base_url=config_data['base_url'],
-            client_id=config_data['client_id'],
-            client_secret=config_data['client_secret'],
-            token_endpoint=config_data.get('token_endpoint', '/api/token'),
-            timeout=config_data.get('timeout', 30)
-        )
+        # Second priority: Environment variables
+        client_id = os.getenv('KORDIAM_CLIENT_ID')
+        client_secret = os.getenv('KORDIAM_CLIENT_SECRET')
+        
+        if client_id and client_secret:
+            logging.info("Using OAuth2 credentials from environment variables")
+            return KordiamConfig(
+                base_url=os.getenv('KORDIAM_BASE_URL', args.base_url),
+                client_id=client_id,
+                client_secret=client_secret,
+                token_endpoint=os.getenv('KORDIAM_TOKEN_ENDPOINT', '/api/token'),
+                timeout=int(os.getenv('KORDIAM_TIMEOUT', '30'))
+            )
+        
+        # Third priority: Config file
+        return load_config(args.config)
+        
     except Exception as e:
-        logging.error(f"Failed to load config file {config_file}: {e}")
+        logging.error(f"Failed to load configuration: {e}")
+        logging.error("\nTo provide OAuth2 credentials, use one of these methods:")
+        logging.error("1. Command line: --client-id YOUR_ID --client-secret YOUR_SECRET")
+        logging.error("2. Environment variables: export KORDIAM_CLIENT_ID=your_id KORDIAM_CLIENT_SECRET=your_secret")
+        logging.error("3. Config file: Update config.json with your credentials")
+        raise
+
+def load_config(config_file: str) -> KordiamConfig:
+    """Load configuration from JSON file or environment variables."""
+    try:
+        # Try to load from environment variables first (more secure)
+        client_id = os.getenv('KORDIAM_CLIENT_ID')
+        client_secret = os.getenv('KORDIAM_CLIENT_SECRET')
+        base_url = os.getenv('KORDIAM_BASE_URL', 'https://kordiam.app')
+        
+        if client_id and client_secret:
+            logging.info("Using OAuth2 credentials from environment variables")
+            return KordiamConfig(
+                base_url=base_url,
+                client_id=client_id,
+                client_secret=client_secret,
+                token_endpoint=os.getenv('KORDIAM_TOKEN_ENDPOINT', '/api/token'),
+                timeout=int(os.getenv('KORDIAM_TIMEOUT', '30'))
+            )
+        
+        # Fall back to config file if environment variables not set
+        if os.path.exists(config_file):
+            logging.info(f"Loading configuration from {config_file}")
+            with open(config_file, 'r') as f:
+                config_data = json.load(f)
+            
+            return KordiamConfig(
+                base_url=config_data['base_url'],
+                client_id=config_data['client_id'],
+                client_secret=config_data['client_secret'],
+                token_endpoint=config_data.get('token_endpoint', '/api/token'),
+                timeout=config_data.get('timeout', 30)
+            )
+        else:
+            raise FileNotFoundError(f"Config file {config_file} not found and no environment variables set")
+            
+    except Exception as e:
+        logging.error(f"Failed to load configuration: {e}")
+        logging.error("\nTo provide credentials, either:")
+        logging.error("1. Set environment variables: KORDIAM_CLIENT_ID and KORDIAM_CLIENT_SECRET")
+        logging.error("2. Create config.json with your credentials")
+        logging.error("3. Use --client-id and --client-secret command line options")
         raise
 
 
@@ -486,13 +551,18 @@ def main():
     parser.add_argument('--dry-run', action='store_true', help='Test run without creating elements')
     parser.add_argument('--log-level', default='INFO', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'])
     
+    # OAuth2 credential options
+    parser.add_argument('--client-id', help='Kordiam OAuth2 client ID')
+    parser.add_argument('--client-secret', help='Kordiam OAuth2 client secret')
+    parser.add_argument('--base-url', default='https://kordiam.app', help='Kordiam base URL')
+    
     args = parser.parse_args()
     
     setup_logging(args.log_level)
     
     try:
-        # Load configuration
-        config = load_config(args.config)
+        # Load configuration with command line override support
+        config = load_config_with_args(args)
         
         # Load mapping configuration
         with open(args.mapping, 'r') as f:

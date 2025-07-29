@@ -1,0 +1,195 @@
+2025-07-29 13:00:50,307 - INFO - Using OAuth2 credentials from command line arguments
+2025-07-29 13:00:50,363 - INFO - Successfully read 4 rows from Excel file
+2025-07-29 13:00:50,363 - INFO - Starting import of 4 rows (dry_run=True)
+2025-07-29 13:00:50,364 - INFO - Row 1: Would create element with data: {
+  "title": "Breaking: Local Election Results",
+  "slug": "local-election-results-2024",
+  "note": "Priority story for front page",
+  "elementStatus": 4,
+  "tasks": [
+    {
+      "status": 1,
+      "format": 18,
+      "user": 5,
+      "deadline": {
+        "date": "2024-03-15",
+        "time": "16:00"
+      },
+      "confirmationStatus": -2,
+      "externalLink": "http://cms.example.com/election/2024",
+      "note": "Interview the mayor"
+    }
+  ],
+  "publications": [
+    {
+      "status": 3,
+      "platform": 1,
+      "category": 8,
+      "type": 4,
+      "externalId": "ext_001",
+      "single": {
+        "start": {
+          "date": "2024-03-15",
+          "time": "18:00"
+        }
+      },
+      "assignments": [
+        true
+      ],
+      "cms_id": 667,
+      "scope": 12.5
+    }
+  ],
+  "location": {
+    "name": "City Hall",
+    "country": "US",
+    "city": "Springfield"
+  },
+  "event": {
+    "fromDate": "2024-03-15",
+    "toDate": "2024-03-15"
+  }
+}
+2025-07-29 13:00:50,364 - INFO - Row 2: Would create element with data: {
+  "title": "Weather Update: Storm Warning",
+  "slug": "storm-warning-march-15",
+  "note": "Send push notification immediately",
+  "elementStatus": 4,
+  "tasks": [
+    {
+      "status": 1,
+      "format": 19,
+      "user": 3,
+      "deadline": {
+        "date": "2024-03-15",
+        "time": "08:00"
+      },
+      "confirmationStatus": 0,
+      "externalLink": "http://weather.example.com/alerts/123",
+      "note": "Get meteorologist quote"
+    }
+  ],
+  "publications": [
+    {
+      "status": 3,
+      "platform": 2,
+      "category": 12,
+      "type": 5,
+      "externalId": "ext_002",
+      "single": {
+        "start": {
+          "date": "2024-03-15",
+          "time": "06:00"
+        }
+      },
+      "assignments": [
+        true
+      ],
+      "cms_id": 668,
+      "scope": 8.0
+    }
+  ],
+  "location": {
+    "name": "Weather Station",
+    "country": "US",
+    "city": "Springfield"
+  }
+}
+2025-07-29 13:00:50,364 - INFO - Row 3: Would create element with data: {
+  "title": "Sports: Championship Game Tonight",
+  "slug": "championship-game-tonight",
+  "note": "Get photos from the game",
+  "elementStatus": 3,
+  "tasks": [
+    {
+      "status": 2,
+      "format": 18,
+      "user": 7,
+      "deadline": {
+        "date": "2024-03-15",
+        "time": "22:00"
+      },
+      "confirmationStatus": -2,
+      "externalLink": "http://sports.example.com/game/456",
+      "note": "Stadium access arranged"
+    }
+  ],
+  "publications": [
+    {
+      "status": 2,
+      "platform": 1,
+      "category": 15,
+      "type": 4,
+      "externalId": "ext_003",
+      "single": {
+        "start": {
+          "date": "2024-03-16",
+          "time": "00:00"
+        }
+      },
+      "assignments": [
+        true
+      ],
+      "cms_id": 669,
+      "scope": 15.2
+    }
+  ],
+  "location": {
+    "name": "Sports Arena",
+    "country": "US",
+    "city": "Springfield"
+  },
+  "event": {
+    "fromDate": "2024-03-15",
+    "toDate": "2024-03-15"
+  }
+}
+2025-07-29 13:00:50,364 - INFO - Row 4: Would create element with data: {
+  "title": "Community Event: Farmers Market",
+  "slug": "farmers-market-saturday",
+  "note": "Include vendor list",
+  "elementStatus": 2,
+  "tasks": [
+    {
+      "status": 1,
+      "format": 20,
+      "user": 5,
+      "deadline": {
+        "date": "2024-03-16",
+        "time": "10:00"
+      },
+      "confirmationStatus": -2,
+      "externalLink": "http://events.example.com/market/789",
+      "note": "Confirm vendor participation"
+    }
+  ],
+  "publications": [
+    {
+      "status": 1,
+      "platform": 3,
+      "category": 10,
+      "type": 6,
+      "externalId": "ext_004",
+      "single": {
+        "start": {
+          "date": "2024-03-16",
+          "time": "08:00"
+        }
+      },
+      "assignments": [
+        true
+      ],
+      "cms_id": 670,
+      "scope": 5.0
+    }
+  ],
+  "location": {
+    "name": "Town Square",
+    "country": "US",
+    "city": "Springfield"
+  },
+  "event": {
+    "fromDate": "2024-03-16",
+    "toDate": "2024-03-16"
+  }
+}
