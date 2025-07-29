@@ -35,17 +35,17 @@ class KordiamAPIClient:
         
     def create_element(self, element_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create an element in Kordiam.
+        Create an element in Kordiam using the actual API endpoint.
         
         Args:
-            element_data: Dictionary containing element data
+            element_data: Dictionary containing element data in Kordiam format
             
         Returns:
             Response from the API
         """
         try:
-            # This endpoint will need to be updated based on actual Kordiam API documentation
-            url = f"{self.config.base_url}/elements"
+            # Use the actual Kordiam API endpoint
+            url = f"{self.config.base_url}/api/v1_0_1/elements/"
             
             response = self.session.post(
                 url,
@@ -59,6 +59,9 @@ class KordiamAPIClient:
             
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to create element: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                logging.error(f"Response status: {e.response.status_code}")
+                logging.error(f"Response body: {e.response.text}")
             raise
     
     def get_element(self, element_id: str) -> Dict[str, Any]:
@@ -72,7 +75,7 @@ class KordiamAPIClient:
             Element data
         """
         try:
-            url = f"{self.config.base_url}/elements/{element_id}"
+            url = f"{self.config.base_url}/api/v1_0_1/elements/{element_id}/"
             
             response = self.session.get(url, timeout=self.config.timeout)
             response.raise_for_status()
@@ -95,7 +98,7 @@ class KordiamAPIClient:
             Response from the API
         """
         try:
-            url = f"{self.config.base_url}/elements/{element_id}"
+            url = f"{self.config.base_url}/api/v1_0_1/elements/{element_id}/"
             
             response = self.session.put(
                 url,
@@ -139,30 +142,144 @@ class ExcelProcessor:
             logging.error(f"Failed to read Excel file {self.excel_file}: {e}")
             raise
     
-    def transform_row_to_element(self, row: pd.Series, column_mapping: Dict[str, str]) -> Dict[str, Any]:
+    def transform_row_to_element(self, row: pd.Series, mapping_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Transform a DataFrame row to Kordiam element format.
         
         Args:
             row: Pandas Series representing a row
-            column_mapping: Mapping from Excel columns to Kordiam fields
+            mapping_config: Complete mapping configuration including element fields and sub-structures
             
         Returns:
             Dictionary formatted for Kordiam API
         """
         element_data = {}
         
-        for excel_col, kordiam_field in column_mapping.items():
+        # Basic element fields
+        basic_fields = mapping_config.get('element_fields', {})
+        for excel_col, kordiam_field in basic_fields.items():
             if excel_col in row.index and pd.notna(row[excel_col]):
                 value = row[excel_col]
                 
                 # Handle different data types
                 if isinstance(value, pd.Timestamp):
-                    value = value.isoformat()
+                    value = value.strftime('%Y-%m-%d')
                 elif isinstance(value, (int, float)) and pd.isna(value):
                     continue
                 
                 element_data[kordiam_field] = value
+        
+        # Handle tasks if configured
+        task_config = mapping_config.get('tasks', {})
+        if task_config and any(col in row.index and pd.notna(row[col]) for col in task_config.keys()):
+            task = {}
+            
+            for excel_col, task_field in task_config.items():
+                if excel_col in row.index and pd.notna(row[excel_col]):
+                    value = row[excel_col]
+                    
+                    # Handle special task fields
+                    if task_field == 'deadline' and isinstance(value, pd.Timestamp):
+                        task['deadline'] = {
+                            'date': value.strftime('%Y-%m-%d'),
+                            'time': value.strftime('%H:%M') if not pd.isna(value) else None
+                        }
+                    elif task_field in ['status', 'format', 'user'] and isinstance(value, (int, float)):
+                        task[task_field] = int(value)
+                    elif task_field == 'confirmationStatus':
+                        # Default to "Not requested" (-2) if not specified
+                        task[task_field] = int(value) if pd.notna(value) else -2
+                    else:
+                        task[task_field] = value
+            
+            # Ensure required task fields have defaults
+            if 'confirmationStatus' not in task:
+                task['confirmationStatus'] = -2  # Not requested
+            
+            if task:  # Only add if we have task data
+                element_data['tasks'] = [task]
+        
+        # Handle publications if configured
+        publication_config = mapping_config.get('publications', {})
+        if publication_config and any(col in row.index and pd.notna(row[col]) for col in publication_config.keys()):
+            publication = {}
+            
+            for excel_col, pub_field in publication_config.items():
+                if excel_col in row.index and pd.notna(row[excel_col]):
+                    value = row[excel_col]
+                    
+                    # Handle special publication fields
+                    if pub_field == 'single' and isinstance(value, pd.Timestamp):
+                        publication['single'] = {
+                            'start': {
+                                'date': value.strftime('%Y-%m-%d'),
+                                'time': value.strftime('%H:%M') if not pd.isna(value) else None
+                            }
+                        }
+                    elif pub_field in ['status', 'platform', 'category', 'type'] and isinstance(value, (int, float)):
+                        publication[pub_field] = int(value)
+                    elif pub_field == 'assignments':
+                        # Handle assignments as boolean array
+                        if isinstance(value, str):
+                            # Convert string like "true,false" to [true, false]
+                            assignments = [s.strip().lower() == 'true' for s in value.split(',')]
+                            publication[pub_field] = assignments
+                        else:
+                            publication[pub_field] = [True]  # Default
+                    else:
+                        publication[pub_field] = value
+            
+            # Set default assignments if not provided
+            if 'assignments' not in publication and 'tasks' in element_data:
+                publication['assignments'] = [True] * len(element_data['tasks'])
+            
+            if publication:  # Only add if we have publication data
+                element_data['publications'] = [publication]
+        
+        # Handle groups if configured
+        groups_config = mapping_config.get('groups', {})
+        if groups_config:
+            for excel_col, group_field in groups_config.items():
+                if excel_col in row.index and pd.notna(row[excel_col]):
+                    value = row[excel_col]
+                    if isinstance(value, (int, float)):
+                        element_data['groups'] = [{'id': int(value)}]
+                    elif isinstance(value, str):
+                        # Handle comma-separated group IDs
+                        group_ids = [{'id': int(g.strip())} for g in value.split(',') if g.strip().isdigit()]
+                        if group_ids:
+                            element_data['groups'] = group_ids
+        
+        # Handle location if configured
+        location_config = mapping_config.get('location', {})
+        if location_config and any(col in row.index and pd.notna(row[col]) for col in location_config.keys()):
+            location = {}
+            
+            for excel_col, loc_field in location_config.items():
+                if excel_col in row.index and pd.notna(row[excel_col]):
+                    location[loc_field] = str(row[excel_col])
+            
+            if location:
+                element_data['location'] = location
+        
+        # Handle event if configured
+        event_config = mapping_config.get('event', {})
+        if event_config and any(col in row.index and pd.notna(row[col]) for col in event_config.keys()):
+            event = {}
+            
+            for excel_col, event_field in event_config.items():
+                if excel_col in row.index and pd.notna(row[excel_col]):
+                    value = row[excel_col]
+                    
+                    if event_field in ['fromDate', 'toDate'] and isinstance(value, pd.Timestamp):
+                        event[event_field] = value.strftime('%Y-%m-%d')
+                    elif event_field in ['fromTime', 'toTime'] and isinstance(value, pd.Timestamp):
+                        event[event_field] = value.strftime('%H:%M')
+                    else:
+                        event[event_field] = str(value)
+            
+            if event:
+                element_data['event'] = event
         
         return element_data
 
@@ -180,7 +297,7 @@ class KordiamImporter:
     
     def import_from_excel(self, 
                          excel_file: str, 
-                         column_mapping: Dict[str, str],
+                         mapping_config: Dict[str, Any],
                          sheet_name: Optional[str] = None,
                          dry_run: bool = False) -> Dict[str, Any]:
         """
@@ -188,7 +305,7 @@ class KordiamImporter:
         
         Args:
             excel_file: Path to Excel file
-            column_mapping: Mapping from Excel columns to Kordiam fields
+            mapping_config: Complete mapping configuration
             sheet_name: Specific sheet to read (optional)
             dry_run: If True, don't actually create elements
             
@@ -202,14 +319,23 @@ class KordiamImporter:
         
         for index, row in df.iterrows():
             try:
-                element_data = processor.transform_row_to_element(row, column_mapping)
+                element_data = processor.transform_row_to_element(row, mapping_config)
                 
                 if not element_data:
                     logging.warning(f"Row {index + 1}: No valid data found, skipping")
                     continue
                 
+                # Validate that element has required components
+                has_publication = 'publications' in element_data and element_data['publications']
+                has_task = 'tasks' in element_data and element_data['tasks']
+                has_group = 'groups' in element_data and element_data['groups']
+                
+                if not (has_publication or has_task or has_group):
+                    logging.warning(f"Row {index + 1}: Element must contain at least one of: publication, task, or group. Skipping.")
+                    continue
+                
                 if dry_run:
-                    logging.info(f"Row {index + 1}: Would create element with data: {element_data}")
+                    logging.info(f"Row {index + 1}: Would create element with data: {json.dumps(element_data, indent=2)}")
                     self.results['success'] += 1
                 else:
                     response = self.client.create_element(element_data)
@@ -272,7 +398,7 @@ def main():
     parser = argparse.ArgumentParser(description='Import Excel data to Kordiam')
     parser.add_argument('excel_file', help='Path to Excel file')
     parser.add_argument('--config', default='config.json', help='Path to config file')
-    parser.add_argument('--mapping', default='column_mapping.json', help='Path to column mapping file')
+    parser.add_argument('--mapping', default='kordiam_mapping.json', help='Path to Kordiam mapping file')
     parser.add_argument('--sheet', help='Excel sheet name (optional)')
     parser.add_argument('--dry-run', action='store_true', help='Test run without creating elements')
     parser.add_argument('--log-level', default='INFO', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'])
@@ -285,15 +411,15 @@ def main():
         # Load configuration
         config = load_config(args.config)
         
-        # Load column mapping
+        # Load mapping configuration
         with open(args.mapping, 'r') as f:
-            column_mapping = json.load(f)
+            mapping_config = json.load(f)
         
         # Create importer and run
         importer = KordiamImporter(config)
         results = importer.import_from_excel(
             args.excel_file,
-            column_mapping,
+            mapping_config,
             args.sheet,
             args.dry_run
         )

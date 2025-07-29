@@ -1,16 +1,19 @@
 # Kordiam Excel Importer
 
-A Python script that reads data from Excel files and creates elements in Kordiam via its REST API.
+A Python script that reads data from Excel files and creates elements in Kordiam via its REST API (v1.0.1).
 
 ## Features
 
 - **Excel Reading**: Supports both `.xlsx` and `.xls` files
-- **Flexible Mapping**: Configurable column mapping between Excel and Kordiam fields
-- **API Integration**: Full REST API client for Kordiam with authentication
-- **Error Handling**: Comprehensive error handling and logging
+- **Kordiam API Integration**: Full integration with Kordiam API v1.0.1
+- **Complex Data Mapping**: Maps Excel data to Kordiam's nested element structure
+- **Task Support**: Creates tasks with deadlines, assignments, and status tracking
+- **Publication Support**: Handles publication scheduling, platforms, and categories
+- **Location & Events**: Optional support for location and event data
+- **Validation**: Ensures elements meet Kordiam's requirements (must have publication, task, or group)
 - **Dry Run Mode**: Test imports without making actual API calls
 - **Detailed Logging**: Complete audit trail of import operations
-- **Data Transformation**: Automatic data type handling (dates, numbers, text)
+- **Error Handling**: Comprehensive error handling and logging
 
 ## Installation
 
@@ -35,7 +38,7 @@ Update the `config.json` file with your Kordiam API credentials:
 
 ```json
 {
-  "base_url": "https://api.kordiam.app",
+  "base_url": "https://kordiam.app",
   "api_key": "YOUR_ACTUAL_API_KEY",
   "headers": {
     "Authorization": "Bearer YOUR_ACTUAL_API_KEY",
@@ -48,27 +51,41 @@ Update the `config.json` file with your Kordiam API credentials:
 
 **Important**: Replace `YOUR_ACTUAL_API_KEY` with your real Kordiam API key.
 
-### 2. Column Mapping (`column_mapping.json`)
+### 2. Element Mapping (`kordiam_mapping.json`)
 
-Configure how Excel columns map to Kordiam API fields:
+Configure how Excel columns map to Kordiam's element structure. The mapping file supports:
 
+- **Element Fields**: Basic element properties (title, slug, note, status)
+- **Tasks**: Task assignments with deadlines and status
+- **Publications**: Publication scheduling and platform assignments
+- **Groups**: Group associations (optional)
+- **Location**: Location information (optional)
+- **Events**: Event timing (optional)
+
+Example mapping structure:
 ```json
 {
-  "Name": "name",
-  "Description": "description",
-  "Type": "type",
-  "Status": "status",
-  "Priority": "priority",
-  "Owner": "owner",
-  "Created Date": "created_date",
-  "Updated Date": "updated_date"
+  "element_fields": {
+    "Title": "title",
+    "Slug": "slug",
+    "Note": "note",
+    "Element Status": "elementStatus"
+  },
+  "tasks": {
+    "Task Status ID": "status",
+    "Task Format ID": "format",
+    "Assigned User ID": "user",
+    "Task Deadline": "deadline",
+    "Confirmation Status": "confirmationStatus"
+  },
+  "publications": {
+    "Publication Status ID": "status",
+    "Platform ID": "platform",
+    "Category ID": "category",
+    "Publication Date": "single"
+  }
 }
 ```
-
-**Key Points**:
-- Left side: Exact Excel column names (case-sensitive)
-- Right side: Kordiam API field names
-- Refer to Kordiam API documentation for valid field names
 
 ## Usage
 
@@ -82,7 +99,7 @@ python3 kordiam_excel_importer.py your_excel_file.xlsx
 
 ```bash
 # Specify custom config and mapping files
-python3 kordiam_excel_importer.py data.xlsx --config custom_config.json --mapping custom_mapping.json
+python3 kordiam_excel_importer.py data.xlsx --config config.json --mapping kordiam_mapping.json
 
 # Import specific sheet
 python3 kordiam_excel_importer.py data.xlsx --sheet "Sheet2"
@@ -98,42 +115,92 @@ python3 kordiam_excel_importer.py data.xlsx --log-level DEBUG
 
 - `excel_file`: Path to the Excel file (required)
 - `--config`: Path to config file (default: `config.json`)
-- `--mapping`: Path to column mapping file (default: `column_mapping.json`)
+- `--mapping`: Path to Kordiam mapping file (default: `kordiam_mapping.json`)
 - `--sheet`: Specific Excel sheet name (optional, uses first sheet if not specified)
 - `--dry-run`: Test run without creating elements
 - `--log-level`: Logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 
 ## Example Excel File
 
-The script includes an example Excel file (`example_data.xlsx`) with sample data:
+The script includes an example Excel file (`kordiam_example.xlsx`) with sample data that matches the Kordiam API structure:
 
-| Name | Description | Type | Status | Priority | Owner | Created Date | Updated Date |
-|------|-------------|------|--------|----------|-------|--------------|--------------|
-| Project Alpha | Main project for Q1 deliverables | Project | Active | High | John Doe | 2024-01-15 | 2024-01-20 |
-| Task Beta | Critical task requiring immediate attention | Task | Pending | Critical | Jane Smith | 2024-01-20 | 2024-01-21 |
+| Title | Slug | Task Status ID | Task Format ID | Publication Status ID | Platform ID | Category ID |
+|-------|------|----------------|----------------|-----------------------|-------------|-------------|
+| Breaking: Local Election Results | local-election-results-2024 | 1 | 18 | 3 | 1 | 8 |
+| Weather Update: Storm Warning | storm-warning-march-15 | 1 | 19 | 3 | 2 | 12 |
 
-## How It Works
+## Kordiam API Requirements
 
-1. **Read Excel File**: The script reads your Excel file using pandas
-2. **Transform Data**: Each row is transformed according to your column mapping
-3. **API Calls**: For each row, the script makes a POST request to create an element in Kordiam
-4. **Logging**: All operations are logged with detailed information
-5. **Results**: Summary of successful imports and any errors
+### Element Structure
+According to Kordiam API documentation, elements must contain **at least one** of:
+- **Publication platform**
+- **Task**  
+- **Group**
 
-## Data Type Handling
+The script validates this requirement and will skip rows that don't meet it.
 
-The script automatically handles various data types:
+### Data Types and Formats
 
-- **Text**: Strings are passed as-is
-- **Numbers**: Integers and floats are preserved
-- **Dates**: Automatically converted to ISO format (YYYY-MM-DD)
-- **Empty Cells**: Skipped (not included in API request)
+- **IDs**: Integer values (Status IDs, Platform IDs, User IDs, etc.)
+- **Dates**: YYYY-MM-DD format or Excel date values
+- **Times**: HH:MM format or Excel datetime values
+- **Task Assignments**: Boolean array as comma-separated values ("true,false,true")
+- **Confirmation Status**: Integer values (-2: Not requested, 0: Requested, 1: Confirmed, -1: Rejected)
+
+## API Integration
+
+The script uses the official Kordiam API endpoints:
+
+- **Create Element**: `POST /api/v1_0_1/elements/`
+- **Get Element**: `GET /api/v1_0_1/elements/{id}/`
+- **Update Element**: `PUT /api/v1_0_1/elements/{id}/`
+
+## Generated JSON Structure
+
+The script generates JSON that matches Kordiam's API specification:
+
+```json
+{
+  "elementStatus": 4,
+  "slug": "story-slug",
+  "title": "Story Title",
+  "note": "Story notes",
+  "tasks": [
+    {
+      "status": 1,
+      "format": 18,
+      "user": 5,
+      "deadline": {
+        "date": "2024-03-15",
+        "time": "16:00"
+      },
+      "confirmationStatus": -2,
+      "externalLink": "http://cms.example.com/story/123"
+    }
+  ],
+  "publications": [
+    {
+      "status": 3,
+      "platform": 1,
+      "category": 8,
+      "single": {
+        "start": {
+          "date": "2024-03-15",
+          "time": "18:00"
+        }
+      },
+      "assignments": [true]
+    }
+  ]
+}
+```
 
 ## Error Handling
 
 - **File Errors**: Clear messages for missing or corrupted Excel files
 - **API Errors**: Detailed logging of HTTP errors with response details
-- **Data Errors**: Validation and transformation error reporting
+- **Validation Errors**: Checks for required element components
+- **Data Type Errors**: Handles data conversion and validation
 - **Network Errors**: Timeout and connection error handling
 
 ## Logging
@@ -143,15 +210,42 @@ The script creates detailed log files with timestamps:
 - Console output for real-time feedback
 - Different log levels for various details
 
-## API Endpoints
+## Troubleshooting
 
-The script uses the following Kordiam API endpoints (update based on actual API):
+### Common Issues
 
-- `POST /elements` - Create new elements
-- `GET /elements/{id}` - Retrieve element details
-- `PUT /elements/{id}` - Update existing elements
+1. **"Element must contain at least one of: publication, task, or group"**
+   - Ensure your Excel has data mapped to tasks, publications, or groups
+   - Check your mapping configuration
 
-**Note**: You'll need to update the endpoint URLs in the script based on the actual Kordiam API documentation.
+2. **API Authentication errors**
+   - Verify your API key in `config.json`
+   - Ensure your API key has proper permissions in Kordiam
+
+3. **Invalid ID errors**
+   - Check that Status IDs, Platform IDs, etc. exist in your Kordiam instance
+   - Use valid integer values for all ID fields
+
+4. **Date/Time format errors**
+   - Use YYYY-MM-DD format for dates
+   - Use HH:MM format for times
+   - Excel datetime cells are automatically converted
+
+### Getting Help
+
+1. Use `--dry-run` to see the generated JSON structure
+2. Check log files for detailed error information
+3. Try with `--log-level DEBUG` for maximum detail
+4. Verify your data with the provided `kordiam_example.xlsx`
+
+## Validation and Testing
+
+Before running actual imports:
+
+1. **Test with dry-run**: `python3 kordiam_excel_importer.py your_file.xlsx --dry-run`
+2. **Check the JSON output** to ensure it matches your expectations
+3. **Verify IDs** exist in your Kordiam instance (platforms, categories, users, etc.)
+4. **Start with small batches** for initial testing
 
 ## Security Notes
 
@@ -160,59 +254,10 @@ The script uses the following Kordiam API endpoints (update based on actual API)
 - Ensure your API key has appropriate permissions
 - Test with dry-run mode first
 
-## Troubleshooting
-
-### Common Issues
-
-1. **"Module not found" errors**
-   - Make sure you're in the virtual environment: `source venv/bin/activate`
-   - Install dependencies: `pip install -r requirements.txt`
-
-2. **API Authentication errors**
-   - Verify your API key in `config.json`
-   - Check the API base URL
-   - Ensure your API key has proper permissions
-
-3. **Excel file errors**
-   - Verify file path and permissions
-   - Check if Excel file is corrupted
-   - Ensure column names match your mapping exactly
-
-4. **Column mapping errors**
-   - Excel column names are case-sensitive
-   - Check for extra spaces in column names
-   - Verify Kordiam API field names
-
-### Getting Help
-
-1. Check the log files for detailed error information
-2. Use `--dry-run` to test your configuration
-3. Try with `--log-level DEBUG` for maximum detail
-4. Verify your Excel file with the provided example
-
-## Customization
-
-The script is designed to be easily customizable:
-
-- **Authentication**: Modify the `KordiamConfig` class for different auth methods
-- **Data Transformation**: Update `transform_row_to_element()` for custom logic
-- **API Endpoints**: Change URLs in the `KordiamAPIClient` class
-- **Error Handling**: Add custom error handling in the main import loop
-
-## Contributing
-
-To improve this script:
-
-1. Update API endpoints based on actual Kordiam documentation
-2. Add support for additional data types
-3. Implement batch API calls for better performance
-4. Add support for updating existing elements
-5. Create a GUI version for non-technical users
-
 ## License
 
 This script is provided as-is for integration with Kordiam. Modify and use according to your needs.
 
 ---
 
-**Note**: This script was created based on general REST API patterns. You'll need to update the API endpoints and field mappings based on the actual Kordiam API documentation at https://api.kordiam.app/
+**Built for Kordiam API v1.0.1** - Based on official API documentation at https://kordiam.app/api/v1_0_1/
