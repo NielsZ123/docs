@@ -1,10 +1,11 @@
 # Kordiam Excel Importer
 
-A Python script that reads data from Excel files and creates elements in Kordiam via its REST API (v1.0.1).
+A Python script that reads data from Excel files and creates elements in Kordiam via its REST API (v1.0.1) using OAuth2 authentication.
 
 ## Features
 
 - **Excel Reading**: Supports both `.xlsx` and `.xls` files
+- **OAuth2 Authentication**: Secure client credentials flow with automatic token management
 - **Kordiam API Integration**: Full integration with Kordiam API v1.0.1
 - **Complex Data Mapping**: Maps Excel data to Kordiam's nested element structure
 - **Task Support**: Creates tasks with deadlines, assignments, and status tracking
@@ -32,26 +33,42 @@ A Python script that reads data from Excel files and creates elements in Kordiam
 
 ## Configuration
 
-### 1. API Configuration (`config.json`)
+### 1. OAuth2 Configuration (`config.json`)
 
-Update the `config.json` file with your Kordiam API credentials:
+Update the `config.json` file with your Kordiam OAuth2 credentials:
 
 ```json
 {
   "base_url": "https://kordiam.app",
-  "api_key": "YOUR_ACTUAL_API_KEY",
-  "headers": {
-    "Authorization": "Bearer YOUR_ACTUAL_API_KEY",
-    "Content-Type": "application/json",
-    "Accept": "application/json"
-  },
+  "client_id": "YOUR_CLIENT_ID_HERE",
+  "client_secret": "YOUR_CLIENT_SECRET_HERE",
+  "token_endpoint": "/api/token",
   "timeout": 30
 }
 ```
 
-**Important**: Replace `YOUR_ACTUAL_API_KEY` with your real Kordiam API key.
+**Important**: 
+- Replace `YOUR_CLIENT_ID_HERE` with your actual Kordiam client ID
+- Replace `YOUR_CLIENT_SECRET_HERE` with your actual Kordiam client secret
+- The script will automatically handle OAuth2 token requests and renewals
 
-### 2. Element Mapping (`kordiam_mapping.json`)
+### 2. OAuth2 Authentication Flow
+
+The script uses OAuth2 client credentials flow:
+
+1. **Token Request**: `POST /api/token`
+2. **Request Body**: `grant_type=client_credentials&client_id=username&client_secret=password`
+3. **Content-Type**: `application/x-www-form-urlencoded`
+4. **Response**: Access token with expiration time
+5. **API Calls**: All requests use `Authorization: Bearer <token>`
+
+The script automatically:
+- Requests tokens when needed
+- Caches tokens until expiration
+- Refreshes tokens with a 5-minute buffer
+- Handles token errors and retries
+
+### 3. Element Mapping (`kordiam_mapping.json`)
 
 Configure how Excel columns map to Kordiam's element structure. The mapping file supports:
 
@@ -147,10 +164,42 @@ The script validates this requirement and will skip rows that don't meet it.
 - **Task Assignments**: Boolean array as comma-separated values ("true,false,true")
 - **Confirmation Status**: Integer values (-2: Not requested, 0: Requested, 1: Confirmed, -1: Rejected)
 
+## Authentication Details
+
+### OAuth2 Client Credentials Flow
+
+```bash
+# Token Request
+POST https://kordiam.app/api/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&client_id=your_client_id&client_secret=your_secret
+
+# Response
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+
+# API Requests
+GET/POST/PUT https://kordiam.app/api/v1_0_1/elements/
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### Token Management
+
+The script automatically handles:
+- **Token Caching**: Stores tokens in memory during script execution
+- **Expiration Handling**: Requests new tokens before expiration
+- **Error Recovery**: Handles 401 errors by refreshing tokens
+- **Security Buffer**: Refreshes tokens 5 minutes before expiration
+
 ## API Integration
 
 The script uses the official Kordiam API endpoints:
 
+- **OAuth2 Token**: `POST /api/token`
 - **Create Element**: `POST /api/v1_0_1/elements/`
 - **Get Element**: `GET /api/v1_0_1/elements/{id}/`
 - **Update Element**: `PUT /api/v1_0_1/elements/{id}/`
@@ -197,6 +246,7 @@ The script generates JSON that matches Kordiam's API specification:
 
 ## Error Handling
 
+- **OAuth2 Errors**: Detailed logging of authentication failures
 - **File Errors**: Clear messages for missing or corrupted Excel files
 - **API Errors**: Detailed logging of HTTP errors with response details
 - **Validation Errors**: Checks for required element components
@@ -209,18 +259,20 @@ The script creates detailed log files with timestamps:
 - Log file: `kordiam_import_YYYYMMDD_HHMMSS.log`
 - Console output for real-time feedback
 - Different log levels for various details
+- OAuth2 token acquisition logging
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **"Element must contain at least one of: publication, task, or group"**
+1. **OAuth2 Authentication errors**
+   - Verify your client_id and client_secret in `config.json`
+   - Ensure your credentials have proper permissions in Kordiam
+   - Check if your client credentials are active and not expired
+
+2. **"Element must contain at least one of: publication, task, or group"**
    - Ensure your Excel has data mapped to tasks, publications, or groups
    - Check your mapping configuration
-
-2. **API Authentication errors**
-   - Verify your API key in `config.json`
-   - Ensure your API key has proper permissions in Kordiam
 
 3. **Invalid ID errors**
    - Check that Status IDs, Platform IDs, etc. exist in your Kordiam instance
@@ -235,7 +287,7 @@ The script creates detailed log files with timestamps:
 
 1. Use `--dry-run` to see the generated JSON structure
 2. Check log files for detailed error information
-3. Try with `--log-level DEBUG` for maximum detail
+3. Try with `--log-level DEBUG` for maximum detail (including OAuth2 flows)
 4. Verify your data with the provided `kordiam_example.xlsx`
 
 ## Validation and Testing
@@ -244,15 +296,17 @@ Before running actual imports:
 
 1. **Test with dry-run**: `python3 kordiam_excel_importer.py your_file.xlsx --dry-run`
 2. **Check the JSON output** to ensure it matches your expectations
-3. **Verify IDs** exist in your Kordiam instance (platforms, categories, users, etc.)
-4. **Start with small batches** for initial testing
+3. **Verify OAuth2 setup** by checking logs for successful token acquisition
+4. **Verify IDs** exist in your Kordiam instance (platforms, categories, users, etc.)
+5. **Start with small batches** for initial testing
 
 ## Security Notes
 
-- Never commit your API keys to version control
-- Use environment variables for sensitive data in production
-- Ensure your API key has appropriate permissions
-- Test with dry-run mode first
+- **OAuth2 Security**: Uses industry-standard OAuth2 client credentials flow
+- **Token Management**: Tokens are cached in memory only (not persisted to disk)
+- **Credential Protection**: Never commit client secrets to version control
+- **Environment Variables**: Consider using environment variables for credentials in production
+- **Test Mode**: Always test with dry-run mode first
 
 ## License
 
@@ -260,4 +314,4 @@ This script is provided as-is for integration with Kordiam. Modify and use accor
 
 ---
 
-**Built for Kordiam API v1.0.1** - Based on official API documentation at https://kordiam.app/api/v1_0_1/
+**Built for Kordiam API v1.0.1 with OAuth2** - Based on official API documentation at https://kordiam.app/api/v1_0_1/

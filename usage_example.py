@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
 """
 Usage Example for Kordiam Excel Importer
-Demonstrates how to use the importer programmatically with the actual Kordiam API structure.
+Demonstrates how to use the importer programmatically with OAuth2 authentication.
 """
 
 from kordiam_excel_importer import KordiamConfig, KordiamImporter
 import json
 
 def example_usage():
-    """Example of how to use the Kordiam importer in your own code."""
+    """Example of how to use the Kordiam importer with OAuth2 authentication."""
     
-    # 1. Create configuration
+    # 1. Create configuration with OAuth2 client credentials
     config = KordiamConfig(
         base_url="https://kordiam.app",
-        api_key="YOUR_API_KEY_HERE",
-        headers={
-            "Authorization": "Bearer YOUR_API_KEY_HERE",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        },
+        client_id="YOUR_CLIENT_ID_HERE",
+        client_secret="YOUR_CLIENT_SECRET_HERE",
+        token_endpoint="/api/token",
         timeout=30
     )
     
@@ -57,7 +54,7 @@ def example_usage():
         }
     }
     
-    # 3. Create importer
+    # 3. Create importer (will automatically handle OAuth2 token)
     importer = KordiamImporter(config)
     
     # 4. Run import (dry run for testing)
@@ -88,8 +85,44 @@ def example_usage():
     except Exception as e:
         print(f"Import failed: {e}")
 
+def oauth2_example():
+    """Example demonstrating OAuth2 authentication flow."""
+    
+    print("OAuth2 Authentication Flow:")
+    print("="*40)
+    
+    # Configuration with OAuth2 credentials
+    config = KordiamConfig(
+        base_url="https://kordiam.app",
+        client_id="your_client_id",
+        client_secret="your_client_secret",
+        token_endpoint="/api/token"
+    )
+    
+    print(f"1. Token Request URL: {config.base_url}{config.token_endpoint}")
+    print(f"2. Grant Type: client_credentials")
+    print(f"3. Client ID: {config.client_id}")
+    print(f"4. Client Secret: [HIDDEN]")
+    print(f"5. Content-Type: application/x-www-form-urlencoded")
+    
+    print(f"\nRequest Body:")
+    print(f"grant_type=client_credentials&client_id={config.client_id}&client_secret=***")
+    
+    print(f"\nExpected Response:")
+    print(f"{{")
+    print(f'  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",')
+    print(f'  "token_type": "Bearer",')
+    print(f'  "expires_in": 3600')
+    print(f"}}")
+    
+    print(f"\nThe script will:")
+    print(f"- Automatically request tokens when needed")
+    print(f"- Cache tokens until they expire")
+    print(f"- Refresh tokens with 5-minute buffer")
+    print(f"- Add 'Authorization: Bearer <token>' to all API requests")
+
 def batch_import_example():
-    """Example of importing multiple files with Kordiam structure."""
+    """Example of importing multiple files with OAuth2."""
     
     excel_files = [
         "stories_batch1.xlsx",
@@ -97,14 +130,15 @@ def batch_import_example():
         "events_data.xlsx"
     ]
     
-    # Load config from file
+    # Load config from file (with OAuth2 credentials)
     with open('config.json', 'r') as f:
         config_data = json.load(f)
     
     config = KordiamConfig(
         base_url=config_data['base_url'],
-        api_key=config_data['api_key'],
-        headers=config_data['headers'],
+        client_id=config_data['client_id'],
+        client_secret=config_data['client_secret'],
+        token_endpoint=config_data.get('token_endpoint', '/api/token'),
         timeout=config_data.get('timeout', 30)
     )
     
@@ -209,8 +243,8 @@ def validation_example():
     
     config = KordiamConfig(
         base_url="https://kordiam.app",
-        api_key="test_key",
-        headers={"Authorization": "Bearer test_key", "Content-Type": "application/json"},
+        client_id="test_client",
+        client_secret="test_secret",
         timeout=30
     )
     
@@ -239,27 +273,32 @@ def validation_example():
     print("2. Complete mapping (will pass):", json.dumps(complete_mapping, indent=2))
 
 if __name__ == "__main__":
-    print("Kordiam Excel Importer - Usage Examples")
-    print("=" * 50)
+    print("Kordiam Excel Importer - Usage Examples with OAuth2")
+    print("=" * 60)
     
-    print("\n1. Basic Usage Example:")
+    print("\n1. OAuth2 Authentication Example:")
+    oauth2_example()
+    
+    print("\n" + "="*60)
+    print("2. Basic Usage Example:")
     example_usage()
     
-    print("\n" + "="*50)
-    print("2. Custom Mapping Examples:")
+    print("\n" + "="*60)
+    print("3. Custom Mapping Examples:")
     custom_mapping_example()
     
-    print("\n" + "="*50)
-    print("3. Validation Examples:")
+    print("\n" + "="*60)
+    print("4. Validation Examples:")
     validation_example()
     
-    print("\n" + "="*50)
-    print("4. Batch Import Example (files not included):")
+    print("\n" + "="*60)
+    print("5. Batch Import Example (files not included):")
     print("   # batch_import_example()")
     
     print(f"\nFor more examples, check:")
     print(f"- kordiam_example.xlsx (sample Excel file)")
     print(f"- kordiam_mapping.json (complete mapping configuration)")
+    print(f"- config.json (OAuth2 credentials)")
     print(f"- Use --dry-run to test your configurations")
     
     print("\nDone!")

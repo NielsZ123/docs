@@ -13,25 +13,110 @@ from dataclasses import dataclass
 from pathlib import Path
 import sys
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 @dataclass
 class KordiamConfig:
     """Configuration for Kordiam API connection."""
     base_url: str
-    api_key: str
-    headers: Dict[str, str]
+    client_id: str
+    client_secret: str
+    token_endpoint: str = "/api/token"
     timeout: int = 30
 
 
 class KordiamAPIClient:
-    """Client for interacting with Kordiam API."""
+    """Client for interacting with Kordiam API with OAuth2 authentication."""
     
     def __init__(self, config: KordiamConfig):
         self.config = config
         self.session = requests.Session()
-        self.session.headers.update(config.headers)
+        self.access_token = None
+        self.token_expires_at = None
+        
+        # Set default headers
+        self.session.headers.update({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        })
+    
+    def _get_access_token(self) -> str:
+        """
+        Get OAuth2 access token using client credentials flow.
+        
+        Returns:
+            Access token string
+        """
+        # Check if we have a valid token
+        if (self.access_token and self.token_expires_at and 
+            datetime.now() < self.token_expires_at):
+            return self.access_token
+        
+        try:
+            token_url = f"{self.config.base_url}{self.config.token_endpoint}"
+            
+            # Prepare OAuth2 client credentials request
+            token_data = {
+                'grant_type': 'client_credentials',
+                'client_id': self.config.client_id,
+                'client_secret': self.config.client_secret
+            }
+            
+            # Use form data for token request
+            headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+            
+            response = requests.post(
+                token_url,
+                data=token_data,
+                headers=headers,
+                timeout=self.config.timeout
+            )
+            response.raise_for_status()
+            
+            token_response = response.json()
+            self.access_token = token_response['access_token']
+            
+            # Calculate token expiration (with 5 minute buffer)
+            expires_in = token_response.get('expires_in', 3600)  # Default 1 hour
+            self.token_expires_at = datetime.now() + timedelta(seconds=expires_in - 300)
+            
+            logging.info("Successfully obtained OAuth2 access token")
+            return self.access_token
+            
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Failed to obtain access token: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                logging.error(f"Token response status: {e.response.status_code}")
+                logging.error(f"Token response body: {e.response.text}")
+            raise
+        except KeyError as e:
+            logging.error(f"Invalid token response format: {e}")
+            raise
+    
+    def _make_authenticated_request(self, method: str, url: str, **kwargs) -> requests.Response:
+        """
+        Make an authenticated request to the Kordiam API.
+        
+        Args:
+            method: HTTP method (GET, POST, PUT, etc.)
+            url: API endpoint URL
+            **kwargs: Additional arguments for requests
+            
+        Returns:
+            Response object
+        """
+        # Get valid access token
+        access_token = self._get_access_token()
+        
+        # Add authorization header
+        headers = kwargs.get('headers', {})
+        headers['Authorization'] = f'Bearer {access_token}'
+        kwargs['headers'] = headers
+        
+        # Make the request
+        response = self.session.request(method, url, timeout=self.config.timeout, **kwargs)
+        return response
         
     def create_element(self, element_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -47,10 +132,10 @@ class KordiamAPIClient:
             # Use the actual Kordiam API endpoint
             url = f"{self.config.base_url}/api/v1_0_1/elements/"
             
-            response = self.session.post(
+            response = self._make_authenticated_request(
+                'POST',
                 url,
-                json=element_data,
-                timeout=self.config.timeout
+                json=element_data
             )
             response.raise_for_status()
             
@@ -77,7 +162,7 @@ class KordiamAPIClient:
         try:
             url = f"{self.config.base_url}/api/v1_0_1/elements/{element_id}/"
             
-            response = self.session.get(url, timeout=self.config.timeout)
+            response = self._make_authenticated_request('GET', url)
             response.raise_for_status()
             
             return response.json()
@@ -100,10 +185,10 @@ class KordiamAPIClient:
         try:
             url = f"{self.config.base_url}/api/v1_0_1/elements/{element_id}/"
             
-            response = self.session.put(
+            response = self._make_authenticated_request(
+                'PUT',
                 url,
-                json=element_data,
-                timeout=self.config.timeout
+                json=element_data
             )
             response.raise_for_status()
             
@@ -381,11 +466,9 @@ def load_config(config_file: str) -> KordiamConfig:
         
         return KordiamConfig(
             base_url=config_data['base_url'],
-            api_key=config_data['api_key'],
-            headers=config_data.get('headers', {
-                'Authorization': f"Bearer {config_data['api_key']}",
-                'Content-Type': 'application/json'
-            }),
+            client_id=config_data['client_id'],
+            client_secret=config_data['client_secret'],
+            token_endpoint=config_data.get('token_endpoint', '/api/token'),
             timeout=config_data.get('timeout', 30)
         )
     except Exception as e:

@@ -1,10 +1,7 @@
 {
   "base_url": "https://kordiam.app",
-  "api_key": "YOUR_API_KEY_HERE",
-  "headers": {
-    "Authorization": "Bearer YOUR_API_KEY_HERE",
-    "Content-Type": "application/json",
-    "Accept": "application/json"
-  },
+  "client_id": "YOUR_CLIENT_ID_HERE",
+  "client_secret": "YOUR_CLIENT_SECRET_HERE",
+  "token_endpoint": "/api/token",
   "timeout": 30
 }
