@@ -1,0 +1,117 @@
+{
+  "_comment": "Kordiam Element Mapping Configuration",
+  "_note": "This file maps Excel columns to Kordiam API element structure",
+  "_requirement": "Element must contain at least one of: publication platform, task, or group",
+  
+  "element_fields": {
+    "_comment": "Basic element fields",
+    "Title": "title",
+    "Slug": "slug",
+    "Note": "note",
+    "Element Status": "elementStatus"
+  },
+  
+  "tasks": {
+    "_comment": "Task-related mappings - creates tasks array",
+    "Task Status ID": "status",
+    "Task Format ID": "format",
+    "Assigned User ID": "user",
+    "Task Deadline": "deadline",
+    "Confirmation Status": "confirmationStatus",
+    "External Link": "externalLink",
+    "External Link Title": "externalLinkTitle",
+    "Custom Upload Link": "customUploadLink",
+    "Task Note": "note"
+  },
+  
+  "publications": {
+    "_comment": "Publication-related mappings - creates publications array",
+    "Publication Status ID": "status",
+    "Platform ID": "platform",
+    "Category ID": "category",
+    "Type ID": "type",
+    "External ID": "externalId",
+    "Publication Date": "single",
+    "Task Assignments": "assignments",
+    "CMS ID": "cms_id",
+    "Published Content URL": "url_to_published_content",
+    "Published Content Title": "url_to_published_content_title",
+    "CMS Edit URL": "url_to_content_in_cms",
+    "CMS Edit Title": "url_to_content_in_cms_title",
+    "Scope": "scope"
+  },
+  
+  "groups": {
+    "_comment": "Group mappings - creates groups array with IDs",
+    "Group IDs": "id"
+  },
+  
+  "location": {
+    "_comment": "Location mappings - creates location object",
+    "Location Name": "name",
+    "Street": "street",
+    "Postal Code": "postalCode",
+    "Country": "country",
+    "Directions": "directions",
+    "City": "city",
+    "State Code": "stateShortCode"
+  },
+  
+  "event": {
+    "_comment": "Event mappings - creates event object",
+    "Event Start Date": "fromDate",
+    "Event Start Time": "fromTime",
+    "Event End Date": "toDate",
+    "Event End Time": "toTime"
+  },
+  
+  "_examples": {
+    "_comment": "Example Excel column names and expected values",
+    "element_fields_example": {
+      "Title": "Story about local election",
+      "Slug": "local-election-2024",
+      "Note": "Important story for Q1",
+      "Element Status": "4"
+    },
+    "tasks_example": {
+      "Task Status ID": "1",
+      "Task Format ID": "18",
+      "Assigned User ID": "5",
+      "Task Deadline": "2024-03-15 14:30",
+      "Confirmation Status": "-2",
+      "External Link": "http://cms.example.com/story/123",
+      "Task Note": "Please complete by Friday"
+    },
+    "publications_example": {
+      "Publication Status ID": "3",
+      "Platform ID": "1",
+      "Category ID": "8",
+      "Publication Date": "2024-03-15 10:00",
+      "Task Assignments": "true,false",
+      "CMS ID": "667"
+    },
+    "groups_example": {
+      "Group IDs": "5,8,12"
+    }
+  },
+  
+  "_field_types": {
+    "_comment": "Data type expectations for each field type",
+    "IDs": "Integer values (1, 2, 3, etc.)",
+    "Dates": "YYYY-MM-DD format or Excel date",
+    "Times": "HH:MM format or Excel datetime", 
+    "Date_Times": "YYYY-MM-DD HH:MM or Excel datetime",
+    "Text": "String values",
+    "Assignments": "Comma-separated boolean values: true,false,true",
+    "Group_IDs": "Comma-separated integers: 1,2,3"
+  },
+  
+  "_instructions": [
+    "1. Update the Excel column names on the left to match your actual Excel file",
+    "2. The values on the right are Kordiam API field names - do not change these",
+    "3. Remove any mappings you don't need",
+    "4. Ensure your Excel has at least one column that maps to tasks, publications, or groups",
+    "5. Check Kordiam documentation for valid Status IDs, Platform IDs, etc.",
+    "6. Test with --dry-run first to see the generated JSON structure"
+  ]
+}
