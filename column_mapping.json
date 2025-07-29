@@ -1,0 +1,25 @@
+{
+  "_comment": "Map Excel column names to Kordiam API field names",
+  "_example_mappings": {
+    "Excel Column Name": "kordiam_field_name",
+    "Name": "name",
+    "Description": "description",
+    "Type": "type",
+    "Status": "status",
+    "Created Date": "created_date",
+    "Updated Date": "updated_date",
+    "Owner": "owner",
+    "Priority": "priority",
+    "Category": "category"
+  },
+  "_instructions": [
+    "1. Replace the example mappings above with your actual Excel column names",
+    "2. Map them to the corresponding Kordiam API field names",
+    "3. Remove these comment fields before using",
+    "4. Check the Kordiam API documentation for exact field names"
+  ],
+  "Name": "name",
+  "Description": "description",
+  "Type": "type",
+  "Status": "status"
+}

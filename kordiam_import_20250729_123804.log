@@ -1,0 +1,6 @@
+2025-07-29 12:38:04,059 - INFO - Successfully read 4 rows from Excel file
+2025-07-29 12:38:04,059 - INFO - Starting import of 4 rows (dry_run=True)
+2025-07-29 12:38:04,060 - INFO - Row 1: Would create element with data: {'name': 'Project Alpha', 'description': 'Main project for Q1 deliverables', 'type': 'Project', 'status': 'Active'}
+2025-07-29 12:38:04,060 - INFO - Row 2: Would create element with data: {'name': 'Task Beta', 'description': 'Critical task requiring immediate attention', 'type': 'Task', 'status': 'Pending'}
+2025-07-29 12:38:04,060 - INFO - Row 3: Would create element with data: {'name': 'Item Gamma', 'description': 'Regular maintenance item', 'type': 'Item', 'status': 'Completed'}
+2025-07-29 12:38:04,060 - INFO - Row 4: Would create element with data: {'name': 'Process Delta', 'description': 'Business process optimization', 'type': 'Process', 'status': 'In Progress'}
